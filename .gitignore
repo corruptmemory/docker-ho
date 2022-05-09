@@ -1,0 +1,6 @@
+.idea
+.vscode/
+*.code-*
+.DS_Store
+docker-ho
+docker_out/
