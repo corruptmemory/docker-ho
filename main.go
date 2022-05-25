@@ -1,10 +1,12 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"html/template"
 	"log"
 	"net/http"
+	"sync"
 	"time"
 )
 
@@ -329,7 +331,39 @@ func streamDataHandler(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
+func doAThing(ctx context.Context, wg *sync.WaitGroup) {
+	log.Print("Starting doAThing...")
+	time.Sleep(5 * time.Second)
+	<-ctx.Done()
+	log.Print("Finishing doAThing")
+	wg.Done()
+}
+
+func waitAThing(done chan struct{}, wg *sync.WaitGroup) {
+	log.Print("Waiting on doAThing")
+	wg.Wait()
+	log.Print("doAThing seems to have stopped")
+	close(done)
+}
+
 func main() {
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	done := make(chan struct{})
+	baseCtx := context.Background()
+	ctx, cancel := context.WithCancel(baseCtx)
+
+	log.Print("Starting a background thinger")
+	go doAThing(ctx, &wg)
+	log.Print("Starting 'wait' on a background thinger")
+	go waitAThing(done, &wg)
+
+	// Tell the thinger to stop
+	cancel()
+	// Wait for the "waiter" to stop
+	<-done
+	log.Print("All things are effectively shut down")
+
 	go tehJob()
 	log.Printf("Starting web server on port %d", port)
 	http.HandleFunc("/", homeHandler)
